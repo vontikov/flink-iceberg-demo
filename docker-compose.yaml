@@ -1,0 +1,121 @@
+version: '3.9'
+
+services:
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - 9000:9000
+      - 9001:9001
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+
+  minio-init:
+    image: minio/mc
+    container_name: minio-init
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+      - CATALOG_WAREHOUSE_NAME=warehouse
+    entrypoint: >
+      bash -c "
+      mc config host add minio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      mc rm -r --force minio/$${CATALOG_WAREHOUSE_NAME};
+      mc mb minio/$${CATALOG_WAREHOUSE_NAME};
+      mc anonymous set public minio/$${CATALOG_WAREHOUSE_NAME};
+      exit 0;
+      "
+    depends_on:
+      - minio
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie
+    container_name: nessie
+    ports:
+      - 19120:19120
+
+  flink-jobmanager:
+    image: com.github.vontikov/flink-iceberg-demo
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flink-jobmanager
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - "\
+        HADOOP_CLASSPATH=\
+        /hadoop/share/hadoop/common/*:\
+        /hadoop/share/hadoop/common/lib/*:\
+        /hadoop/share/hadoop/hdfs/*:\
+        /hadoop/share/hadoop/hdfs/lib/*:\
+        /hadoop/share/hadoop/tools/lib/*:\
+        /hadoop/share/hadoop/yarn/*:\
+        /hadoop/share/hadoop/yarn/lib/*\
+        "
+    ports:
+      - 8081:8081
+
+  flink-taskmanager:
+    image: com.github.vontikov/flink-iceberg-demo
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flink-taskmanager
+    command: taskmanager
+    scale: 1
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - "\
+        HADOOP_CLASSPATH=\
+        /hadoop/share/hadoop/common/*:\
+        /hadoop/share/hadoop/common/lib/*:\
+        /hadoop/share/hadoop/hdfs/*:\
+        /hadoop/share/hadoop/hdfs/lib/*:\
+        /hadoop/share/hadoop/tools/lib/*:\
+        /hadoop/share/hadoop/yarn/*:\
+        /hadoop/share/hadoop/yarn/lib/*\
+        "
+    depends_on:
+      - flink-jobmanager
+
+  flink-sql-client:
+    image: com.github.vontikov/flink-iceberg-demo
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flink-sql-client
+    command: sleep infinity
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - "\
+        HADOOP_CLASSPATH=\
+        /hadoop/share/hadoop/common/*:\
+        /hadoop/share/hadoop/common/lib/*:\
+        /hadoop/share/hadoop/hdfs/*:\
+        /hadoop/share/hadoop/hdfs/lib/*:\
+        /hadoop/share/hadoop/tools/lib/*:\
+        /hadoop/share/hadoop/yarn/*:\
+        /hadoop/share/hadoop/yarn/lib/*\
+        "
+    depends_on:
+      - flink-jobmanager

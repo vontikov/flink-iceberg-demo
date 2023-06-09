@@ -11,7 +11,7 @@ You need to have [Docker installed](https://docs.docker.com/get-docker/) before 
 
 ## Run the demo
 
-Clone this repository, change into the `flink-iceberg-demo` directory, and start up the environment.
+Clone this repository, cd into `flink-iceberg-demo` directory, and start up the demo.
 
 ```sh
 git clone git@github.com:vontikov/flink-iceberg-demo.git
@@ -88,7 +88,6 @@ open http://localhost:19120
 ```
 
 And here you can Flink completed tasks
-`warehouse`
 ```sh
 open http://localhost:8081
 ```

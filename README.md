@@ -82,7 +82,6 @@ open http://localhost:9001
 ```
 
 You can see Nessie catalog here
-`warehouse`
 ```sh
 open http://localhost:19120
 ```
